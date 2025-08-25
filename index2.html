@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Jogo da Velha com Níveis</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #282c34;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    #level-select {
+      margin-bottom: 20px;
+    }
+
+    #game-board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 5px;
+    }
+
+    .cell {
+      background-color: #4c00ae;
+      font-size: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: 2px solid #e29aff;
+    }
+
+    .cell:hover {
+      background-color: #470c75;
+    }
+
+    #status {
+      margin: 20px;
+      font-size: 20px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #61dafb;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #21a1f1;
+    }
+
+    select {
+      padding: 5px 10px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎮 Jogo da Velha (1 jogador)</h1>
+
+  <div id="level-select">
+    <label for="difficulty">Dificuldade:</label>
+    <select id="difficulty">
+      <option value="easy">Fácil</option>
+      <option value="medium">Médio</option>
+      <option value="hard">Difícil</option>
+    </select>
+  </div>
+
+  <div id="status">Sua vez (X)</div>
+  <div id="game-board"></div>
+  <button onclick="restartGame()">Reiniciar</button>
+
+  <script>
+    const board = document.getElementById('game-board');
+    const statusDiv = document.getElementById('status');
+    const difficultySelect = document.getElementById('difficulty');
+
+    let cells = Array(9).fill(null);
+    let gameOver = false;
+    const human = 'X';
+    const ai = 'O';
+
+    function createBoard() {
+      board.innerHTML = '';
+      cells.forEach((_, i) => {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.dataset.index = i;
+        cell.addEventListener('click', handleCellClick);
+        board.appendChild(cell);
+      });
+    }
+
+    function handleCellClick(e) {
+      const index = e.target.dataset.index;
+      if (cells[index] || gameOver) return;
+
+      makeMove(index, human);
+      if (!gameOver) {
+        setTimeout(computerMove, 300); // delay para parecer mais "humano"
+      }
+    }
+
+    function makeMove(index, player) {
+      if (!cells[index]) {
+        cells[index] = player;
+        document.querySelector(`.cell[data-index="${index}"]`).textContent = player;
+        if (checkWinner(cells, player)) {
+          statusDiv.textContent = player === human ? '🎉 Você venceu!' : '💻 O computador venceu!';
+          gameOver = true;
+        } else if (cells.every(cell => cell)) {
+          statusDiv.textContent = 'Empate!';
+          gameOver = true;
+        } else {
+          statusDiv.textContent = player === human ? 'Vez do computador...' : 'Sua vez (X)';
+        }
+      }
+    }
+
+    function computerMove() {
+      const level = difficultySelect.value;
+
+      let index;
+      if (level === 'easy') {
+        index = getRandomMove();
+      } else if (level === 'medium') {
+        index = getMediumMove();
+      } else {
+        index = getBestMove(); // minimax
+      }
+
+      makeMove(index, ai);
+    }
+
+    function getRandomMove() {
+      const empty = cells.map((val, i) => val === null ? i : null).filter(i => i !== null);
+      return empty[Math.floor(Math.random() * empty.length)];
+    }
+
+    function getMediumMove() {
+      // 1. Ganhar se possível
+      for (let i = 0; i < 9; i++) {
+        if (!cells[i]) {
+          const copy = [...cells];
+          copy[i] = ai;
+          if (checkWinner(copy, ai)) return i;
+        }
+      }
+      // 2. Bloquear o humano se for vencer
+      for (let i = 0; i < 9; i++) {
+        if (!cells[i]) {
+          const copy = [...cells];
+          copy[i] = human;
+          if (checkWinner(copy, human)) return i;
+        }
+      }
+      // 3. Jogada aleatória
+      return getRandomMove();
+    }
+
+    function getBestMove() {
+      let bestScore = -Infinity;
+      let move;
+
+      for (let i = 0; i < 9; i++) {
+        if (!cells[i]) {
+          cells[i] = ai;
+          let score = minimax(cells, 0, false);
+          cells[i] = null;
+          if (score > bestScore) {
+            bestScore = score;
+            move = i;
+          }
+        }
+      }
+      return move;
+    }
+
+    function minimax(board, depth, isMaximizing) {
+      if (checkWinner(board, ai)) return 10 - depth;
+      if (checkWinner(board, human)) return depth - 10;
+      if (board.every(cell => cell)) return 0;
+
+      if (isMaximizing) {
+        let best = -Infinity;
+        for (let i = 0; i < 9; i++) {
+          if (!board[i]) {
+            board[i] = ai;
+            best = Math.max(best, minimax(board, depth + 1, false));
+            board[i] = null;
+          }
+        }
+        return best;
+      } else {
+        let best = Infinity;
+        for (let i = 0; i < 9; i++) {
+          if (!board[i]) {
+            board[i] = human;
+            best = Math.min(best, minimax(board, depth + 1, true));
+            board[i] = null;
+          }
+        }
+        return best;
+      }
+    }
+
+    function checkWinner(board, player) {
+      const winPatterns = [
+        [0,1,2], [3,4,5], [6,7,8],
+        [0,3,6], [1,4,7], [2,5,8],
+        [0,4,8], [2,4,6]
+      ];
+      return winPatterns.some(pattern =>
+        pattern.every(index => board[index] === player)
+      );
+    }
+
+    function restartGame() {
+      cells = Array(9).fill(null);
+      gameOver = false;
+      statusDiv.textContent = 'Sua vez (X)';
+      createBoard();
+    }
+
+    // Inicializa
+    createBoard();
+  </script>
+</body>
+</html>

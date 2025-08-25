@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jogo da Memória</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: hwb(273 62% 0%);
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+      color: white;
+    }
+
+    h1 {
+      color: #eee;
+    }
+
+    .difficulty-buttons {
+      margin-bottom: 20px;
+    }
+
+    .difficulty-buttons button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 0 8px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background-color: #b438d3;
+      color: white;
+      transition: background-color 0.3s;
+    }
+
+    .difficulty-buttons button:hover,
+    .difficulty-buttons button.active {
+      background-color: #8e2ca0;
+    }
+
+    .memory-game {
+      margin: 0 auto;
+      display: grid;
+      gap: 10px;
+      justify-content: center;
+      /* grid-template-columns será setado via JS */
+    }
+
+    .card {
+      background: #fff;
+      border: 2px solid #ccc;
+      border-radius: 10px;
+      font-size: 64px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 150px;
+      width: 150px;
+      cursor: pointer;
+      transition: transform 0.3s;
+      user-select: none;
+      position: relative;
+      perspective: 1000px;
+    }
+
+    .card.flipped {
+      background: #fff;
+    }
+
+    .card .front,
+    .card .back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backface-visibility: hidden;
+      border-radius: 10px;
+    }
+
+    .card .front {
+      background: #b438d3;
+      font-size: 48px;
+      color: white;
+      transform: rotateY(0deg);
+    }
+
+    .card .back {
+      font-size: 64px;
+      transform: rotateY(180deg);
+    }
+
+    .card.flipped .front {
+      transform: rotateY(180deg);
+    }
+
+    .card.flipped .back {
+      transform: rotateY(0deg);
+    }
+
+    /* Ajuste na imagem para não "quebrar" o layout */
+    .card .back img {
+      width: 80px;
+      height: 80px;
+      object-fit: contain;
+      border-radius: 8px;
+      user-select: none;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧠 Jogo da Memória</h1>
+
+  <div class="difficulty-buttons">
+    <button id="easy-btn" class="active" onclick="startGame('easy')">Fácil</button>
+    <button id="medium-btn" onclick="startGame('medium')">Médio</button>
+    <button id="hard-btn" onclick="startGame('hard')">Difícil</button>
+  </div>
+
+  <div class="memory-game" id="game-board"></div>
+
+  <script>
+    // Substitua os caminhos abaixo pelas suas imagens locais ou URLs
+    const images = [
+      'tiana.jpg',
+      'cinderela.jpg',
+      'branca_de_neve.webp'
+    ];
+
+    const cardCounts = {
+      easy: 8,
+      medium: 18,
+      hard: 28,
+    };
+
+    const gameBoard = document.getElementById('game-board');
+    let firstCard = null;
+    let secondCard = null;
+    let lockBoard = false;
+    let currentLevel = 'easy';
+
+    const btnEasy = document.getElementById('easy-btn');
+    const btnMedium = document.getElementById('medium-btn');
+    const btnHard = document.getElementById('hard-btn');
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function createCard(imageUrl) {
+      const card = document.createElement('div');
+      card.classList.add('card');
+
+      card.innerHTML = `
+        <div class="front">❓</div>
+        <div class="back"><img src="${imageUrl}" alt="Imagem da carta" /></div>
+      `;
+
+      card.addEventListener('click', () => {
+        if (lockBoard || card.classList.contains('flipped')) return;
+
+        card.classList.add('flipped');
+
+        if (!firstCard) {
+          firstCard = card;
+        } else {
+          secondCard = card;
+          lockBoard = true;
+
+          const firstImg = firstCard.querySelector('.back img').src;
+          const secondImg = secondCard.querySelector('.back img').src;
+
+          if (firstImg === secondImg) {
+            firstCard = null;
+            secondCard = null;
+            lockBoard = false;
+            checkGameEnd();
+          } else {
+            setTimeout(() => {
+              firstCard.classList.remove('flipped');
+              secondCard.classList.remove('flipped');
+              firstCard = null;
+              secondCard = null;
+              lockBoard = false;
+            }, 1000);
+          }
+        }
+      });
+
+      return card;
+    }
+
+    function checkGameEnd() {
+      const flippedCards = document.querySelectorAll('.card.flipped');
+      if (flippedCards.length === cardCounts[currentLevel] * 2) {
+        setTimeout(() => alert(`Parabéns! Você venceu o nível ${capitalize(currentLevel)}! 🎉`), 300);
+      }
+    }
+
+    function capitalize(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    function updateActiveButton(level) {
+      btnEasy.classList.remove('active');
+      btnMedium.classList.remove('active');
+      btnHard.classList.remove('active');
+
+      if (level === 'easy') btnEasy.classList.add('active');
+      else if (level === 'medium') btnMedium.classList.add('active');
+      else if (level === 'hard') btnHard.classList.add('active');
+    }
+
+    function startGame(level) {
+      currentLevel = level;
+      updateActiveButton(level);
+      gameBoard.innerHTML = '';
+
+      const pairsCount = cardCounts[level];
+      const selectedImages = images.slice(0, pairsCount);
+      const cardsArray = [...selectedImages, ...selectedImages];
+      const shuffledCards = shuffle(cardsArray);
+
+      shuffledCards.forEach(imageUrl => {
+        const card = createCard(imageUrl);
+        gameBoard.appendChild(card);
+      });
+
+      // Ajusta colunas conforme nível
+      let cols;
+      if (level === 'easy') cols = 4;
+      else if (level === 'medium') cols = 6;
+      else cols = 8;
+
+      gameBoard.style.gridTemplateColumns = `repeat(${cols}, 150px)`;
+
+      // Reset variáveis
+      firstCard = null;
+      secondCard = null;
+      lockBoard = false;
+    }
+
+    // Inicializa no nível fácil
+    startGame('easy');
+  </script>
+</body>
+</html>
